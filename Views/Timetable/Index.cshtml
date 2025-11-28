@@ -157,9 +157,11 @@
                                 {
                                     <td class="border border-gray-200 p-2 align-top @(day.IsCurrentMonth ? "bg-white/80" : "bg-gray-100/50 opacity-60")">
                                         <div class="font-bold text-gray-800 mb-2 text-sm">@day.DayOfMonth</div>
+                                        <!-- Replace the entry div in your Index.cshtml with this: -->
                                         @foreach (var entry in day.Entries)
                                         {
-                                            <div class="entry @entry.ColorCode mb-2 p-2 rounded-lg shadow-md cursor-pointer hover:shadow-xl hover:scale-105 text-gray-800"
+                                            <div class="entry mb-2 p-2 rounded-lg shadow-md cursor-pointer hover:shadow-xl hover:scale-105 text-gray-800"
+                                                 style="background-color: @entry.ColorCode;"
                                                  onclick="editEntry(@entry.EntryId)">
                                                 <div class="font-bold text-xs">⏰ @entry.TimeSlot</div>
                                                 @if (Model.IsTeacher)

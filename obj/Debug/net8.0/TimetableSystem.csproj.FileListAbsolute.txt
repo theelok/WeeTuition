@@ -48,3 +48,4 @@ D:\TiweeWeb\TimetableSystem\TimetableSystem\obj\Debug\net8.0\refint\TimetableSys
 D:\TiweeWeb\TimetableSystem\TimetableSystem\obj\Debug\net8.0\TimetableSystem.pdb
 D:\TiweeWeb\TimetableSystem\TimetableSystem\obj\Debug\net8.0\TimetableSystem.genruntimeconfig.cache
 D:\TiweeWeb\TimetableSystem\TimetableSystem\obj\Debug\net8.0\ref\TimetableSystem.dll
+D:\TiweeWeb\TimetableSystem\TimetableSystem\obj\Debug\net8.0\TimetableSystem.sourcelink.json
