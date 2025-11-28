@@ -3,12 +3,12 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy .csproj and restore
-COPY ["TimetableSystem/TimetableSystem.csproj", "TimetableSystem/"]
-RUN dotnet restore "TimetableSystem/TimetableSystem.csproj"
+COPY ["TimetableSystem.csproj", "./"]
+RUN dotnet restore "TimetableSystem.csproj"
 
 # Copy the entire project
 COPY . .
-WORKDIR "/src/TimetableSystem"
+WORKDIR "/src"
 RUN dotnet build "TimetableSystem.csproj" -c Release -o /app/build
 
 # Publish stage
