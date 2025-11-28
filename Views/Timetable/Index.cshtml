@@ -1,0 +1,225 @@
+﻿@model TimetableSystem.Models.TimetableViewModel
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timetable - @Model.MonthName</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+        }
+
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .entry {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .entry::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                transition: left 0.5s;
+            }
+
+            .entry:hover::before {
+                left: 100%;
+            }
+
+        .calendar td {
+            min-height: 120px;
+            height: 150px;
+        }
+
+        .sparkle {
+            animation: sparkle 2s infinite;
+        }
+
+        @@keyframes sparkle {
+            0%, 100%
+
+        {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        50% {
+            opacity: 0.5;
+            transform: scale(1.1);
+        }
+
+        }
+
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @@keyframes float {
+            0%, 100%
+
+        {
+            transform: translateY(0px);
+        }
+
+        50% {
+            transform: translateY(-10px);
+        }
+
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header with Glass Morphism -->
+        <div class="glass-morphism rounded-3xl shadow-2xl p-6 md:p-8 mb-8 floating">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-5xl sparkle">📅</span>
+                    <div>
+                        <h1 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent">
+                            Mystical Timetable
+                        </h1>
+                        <p class="text-sm text-purple-600 font-medium">
+                            @(Model.IsTeacher ? "✨ Wizard's View" : "🎓 Apprentice's View")
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button onclick="navigateMonth(-1)"
+                            class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg transform hover:scale-105 transition-all duration-300 hover:shadow-purple-500/50">
+                        ◀ Previous
+                    </button>
+                    <span class="text-xl md:text-2xl font-bold text-purple-800 px-4">
+                        @Model.MonthName
+                    </span>
+                    <button onclick="navigateMonth(1)"
+                            class="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg transform hover:scale-105 transition-all duration-300 hover:shadow-blue-500/50">
+                        Next ▶
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend with Fantasy Theme -->
+        <div class="glass-morphism rounded-2xl shadow-xl p-6 mb-8">
+            <h2 class="text-xl font-bold text-purple-800 mb-4 flex items-center gap-2">
+                <span class="text-2xl">🔮</span> Magic Status Crystal
+            </h2>
+            <div class="flex flex-wrap gap-4">
+                @foreach (var status in Model.StatusLegend)
+                {
+                    <div class="flex items-center gap-3 bg-white/50 rounded-full px-4 py-2 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
+                        <div class="w-8 h-8 rounded-full shadow-inner" style="background: @status.ColorCode;"></div>
+                        <div>
+                            <span class="font-bold text-gray-800">@status.StatusName</span>
+                            <span class="text-sm text-gray-600 ml-2">@status.Description</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Calendar with Fantasy Design -->
+        <div class="glass-morphism rounded-2xl shadow-2xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full calendar border-collapse">
+                    <thead>
+                        <tr class="bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600">
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Monday</th>
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Tuesday</th>
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Wednesday</th>
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Thursday</th>
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Friday</th>
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Saturday</th>
+                            <th class="text-white font-bold py-4 px-2 text-center border border-purple-700">Sunday</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var week in Model.Weeks)
+                        {
+                            <tr>
+                                @foreach (var day in week.Days)
+                                {
+                                    <td class="border border-gray-200 p-2 align-top @(day.IsCurrentMonth ? "bg-white/80" : "bg-gray-100/50 opacity-60")">
+                                        <div class="font-bold text-gray-800 mb-2 text-sm">@day.DayOfMonth</div>
+                                        @foreach (var entry in day.Entries)
+                                        {
+                                            <div class="entry @entry.ColorCode mb-2 p-2 rounded-lg shadow-md cursor-pointer hover:shadow-xl hover:scale-105 text-gray-800"
+                                                 onclick="editEntry(@entry.EntryId)">
+                                                <div class="font-bold text-xs">⏰ @entry.TimeSlot</div>
+                                                @if (Model.IsTeacher)
+                                                {
+                                                    <div class="font-semibold text-sm mt-1">👤 @entry.StudentCode</div>
+                                                }
+                                                <div class="text-xs opacity-90">📚 @entry.SubjectCode</div>
+                                            </div>
+                                        }
+                                        @if (Model.IsTeacher && day.IsCurrentMonth)
+                                        {
+                                            <button class="mt-2 w-full bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white font-bold py-2 px-3 rounded-lg text-sm shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+                                                    onclick="addEntry('@day.Date.ToString("yyyy-MM-dd")')">
+                                                ✨ Add
+                                            </button>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function navigateMonth(direction) {
+            var year = @Model.Year;
+            var month = @Model.Month + direction;
+
+            if (month > 12) {
+                month = 1;
+                year++;
+            } else if (month < 1) {
+                month = 12;
+                year--;
+            }
+
+            window.location.href = '@Url.Action("Index", "Timetable")?year=' + year + '&month=' + month;
+        }
+
+        function editEntry(entryId) {
+            @if (Model.IsTeacher)
+            {
+                    <text>
+                    window.location.href = '@Url.Action("Edit", "Timetable")/' + entryId;
+                    </text>
+            }
+            else
+            {
+                    <text>
+                    alert('🔒 Only wizards can edit timetable entries!');
+                    </text>
+            }
+        }
+
+        function addEntry(date) {
+            window.location.href = '@Url.Action("Create", "Timetable")?date=' + date;
+        }
+    </script>
+</body>
+</html>
