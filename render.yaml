@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: weetuition
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
+      - key: ConnectionStrings__DefaultConnection
+        sync: false  # Set this in Render dashboard
+    healthCheckPath: /api/account/current

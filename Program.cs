@@ -88,6 +88,16 @@ app.UseCors("AllowReactApp");
 app.UseSession();
 app.UseAuthorization();
 
+// Serve static files from wwwroot (contains frontend/dist after build)
+app.UseStaticFiles();
+
+// API routes
 app.MapControllers();
+
+// Fallback to index.html for SPA routing (must be last, after all other routes)
+if (!app.Environment.IsDevelopment())
+{
+    app.MapFallbackToFile("index.html");
+}
 
 app.Run();
