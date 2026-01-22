@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace TimetableSystem.Models
 {
@@ -42,6 +43,7 @@ namespace TimetableSystem.Models
 
         public DateTime CreatedDate { get; set; }
 
+        [JsonIgnore]
         public virtual ICollection<TimetableEntry> TimetableEntries { get; set; }
     }
 
@@ -61,6 +63,7 @@ namespace TimetableSystem.Models
         [StringLength(200)]
         public string Description { get; set; }
 
+        [JsonIgnore]
         public virtual ICollection<TimetableEntry> TimetableEntries { get; set; }
     }
 
@@ -72,6 +75,7 @@ namespace TimetableSystem.Models
         public int StudentId { get; set; }
 
         [ForeignKey("StudentId")]
+        [JsonIgnore]
         public virtual Student Student { get; set; }
 
         [Required]
@@ -86,6 +90,7 @@ namespace TimetableSystem.Models
         public int StatusId { get; set; }
 
         [ForeignKey("StatusId")]
+        [JsonIgnore]
         public virtual ScheduleStatus Status { get; set; }
 
         [StringLength(100)]

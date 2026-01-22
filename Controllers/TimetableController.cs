@@ -4,7 +4,9 @@ using TimetableSystem.Models;
 
 namespace TimetableSystem.Controllers
 {
-    public class TimetableController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    public class TimetableController : ControllerBase
     {
         private readonly AppDbContext db;
 
@@ -13,14 +15,15 @@ namespace TimetableSystem.Controllers
             db = context;
         }
 
-        // GET: Timetable/Index
-        public IActionResult Index(int? year, int? month)
+        // GET: api/Timetable
+        [HttpGet]
+        public IActionResult GetTimetable([FromQuery] int? year, [FromQuery] int? month)
         {
             bool isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
             int? studentId = HttpContext.Session.GetInt32("StudentId");
 
             if (!isTeacher && !studentId.HasValue)
-                return RedirectToAction("Login", "Account");
+                return Unauthorized(new { message = "Not logged in" });
 
             if (!year.HasValue || !month.HasValue)
             {
@@ -29,16 +32,16 @@ namespace TimetableSystem.Controllers
             }
 
             var viewModel = BuildTimetableViewModel(year.Value, month.Value, isTeacher, studentId);
-            return View(viewModel);
+            return Ok(viewModel);
         }
 
-        // GET: Timetable/Edit/5
-        [HttpGet]
-        public IActionResult Edit(int id)
+        // GET: api/Timetable/{id}
+        [HttpGet("{id}")]
+        public IActionResult GetEntry(int id)
         {
             bool isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
             if (!isTeacher)
-                return RedirectToAction("Index");
+                return Unauthorized(new { message = "Only teachers can view entry details" });
 
             var entry = db.TimetableEntries
                 .Include(t => t.Student)
@@ -48,33 +51,80 @@ namespace TimetableSystem.Controllers
             if (entry == null)
                 return NotFound();
 
+            // Get students and statuses without navigation properties
+            var students = db.Students.AsNoTracking().ToList();
+            var statuses = db.ScheduleStatuses
+                .AsNoTracking()
+                .Select(s => new ScheduleStatus
+                {
+                    StatusId = s.StatusId,
+                    StatusName = s.StatusName,
+                    ColorCode = s.ColorCode,
+                    Description = s.Description
+                })
+                .ToList();
+            
+            // Clear navigation properties
+            foreach (var status in statuses)
+            {
+                status.TimetableEntries = null;
+            }
+
             var viewModel = new EditEntryViewModel
             {
                 EntryId = entry.EntryId,
                 StudentId = entry.StudentId,
                 ScheduleDate = entry.ScheduleDate,
-                StartTime = entry.StartTime.ToString(@"HH\:mm"),
-                EndTime = entry.EndTime.ToString(@"HH\:mm"),
+                StartTime = entry.StartTime.ToString(@"HH\:mm") ?? "09:00",
+                EndTime = entry.EndTime.ToString(@"HH\:mm") ?? "10:00",
                 StatusId = entry.StatusId,
                 Subject = entry.Subject,
                 Location = entry.Location,
                 Notes = entry.Notes,
-                Students = db.Students.ToList(),
-                Statuses = db.ScheduleStatuses.ToList()
+                Students = students,
+                Statuses = statuses
             };
 
-            return View(viewModel);
+            return Ok(viewModel);
         }
 
-        // POST: Timetable/Edit
-        // POST: Timetable/Edit
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Edit(EditEntryViewModel model)
+        // GET: api/Timetable/students
+        [HttpGet("students")]
+        public IActionResult GetStudents()
+        {
+            var students = db.Students.ToList();
+            return Ok(students);
+        }
+
+        // GET: api/Timetable/statuses
+        [HttpGet("statuses")]
+        public IActionResult GetStatuses()
+        {
+            var statuses = db.ScheduleStatuses
+                .AsNoTracking()
+                .Select(s => new ScheduleStatusDto
+                {
+                    StatusId = s.StatusId,
+                    StatusName = s.StatusName,
+                    ColorCode = s.ColorCode,
+                    Description = s.Description
+                })
+                .ToList();
+            return Ok(statuses);
+        }
+
+        // PUT: api/Timetable/{id}
+        [HttpPut("{id}")]
+        public IActionResult UpdateEntry(int id, [FromBody] EditEntryViewModel model)
         {
             bool isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
             if (!isTeacher)
-                return RedirectToAction("Index");
+                return Unauthorized(new { message = "Only teachers can edit entries" });
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { message = "Invalid model data", errors = ModelState });
+            }
 
             // Validate time
             if (!string.IsNullOrEmpty(model.StartTime) && !string.IsNullOrEmpty(model.EndTime))
@@ -82,30 +132,29 @@ namespace TimetableSystem.Controllers
                 var startParts = model.StartTime.Split(':');
                 var endParts = model.EndTime.Split(':');
 
+                if (startParts.Length != 2 || endParts.Length != 2)
+                {
+                    return BadRequest(new { message = "Invalid time format. Use HH:mm" });
+                }
+
                 var startMinutes = int.Parse(startParts[0]) * 60 + int.Parse(startParts[1]);
                 var endMinutes = int.Parse(endParts[0]) * 60 + int.Parse(endParts[1]);
 
                 if (endMinutes <= startMinutes)
                 {
-                    ModelState.AddModelError("EndTime", "End time must be later than start time");
-                    model.Students = db.Students.ToList();
-                    model.Statuses = db.ScheduleStatuses.ToList();
-                    return View(model);
+                    return BadRequest(new { message = "End time must be later than start time" });
                 }
             }
 
             try
             {
-                // Fetch the entry WITH tracking (remove AsNoTracking())
-                var entry = db.TimetableEntries.FirstOrDefault(t => t.EntryId == model.EntryId);
+                var entry = db.TimetableEntries.FirstOrDefault(t => t.EntryId == id);
                 if (entry == null)
                     return NotFound();
 
-                // Update the tracked entity
                 entry.StudentId = model.StudentId;
                 entry.ScheduleDate = DateTime.SpecifyKind(model.ScheduleDate.Date, DateTimeKind.Utc);
 
-                // Parse time correctly
                 var startTimeParts = model.StartTime.Split(':');
                 entry.StartTime = new DateTime(1, 1, 1, int.Parse(startTimeParts[0]), int.Parse(startTimeParts[1]), 0, DateTimeKind.Utc);
 
@@ -117,50 +166,23 @@ namespace TimetableSystem.Controllers
                 entry.Location = model.Location;
                 entry.Notes = model.Notes;
 
-                // No need to call Update() - the entity is already being tracked
                 db.SaveChanges();
 
-                TempData["SuccessMessage"] = "Entry updated successfully!";
-                return RedirectToAction("Index", new { year = model.ScheduleDate.Year, month = model.ScheduleDate.Month });
+                return Ok(new { success = true, message = "Entry updated successfully!" });
             }
             catch (Exception ex)
             {
-                ModelState.AddModelError("", "Error saving changes: " + ex.Message);
-                model.Students = db.Students.ToList();
-                model.Statuses = db.ScheduleStatuses.ToList();
-                return View(model);
+                return BadRequest(new { message = "Error saving changes: " + ex.Message });
             }
         }
 
-        // GET: Timetable/Create
-        [HttpGet]
-        public IActionResult Create(DateTime? date)
-        {
-            bool isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
-            if (!isTeacher)
-                return RedirectToAction("Index");
-
-            var viewModel = new EditEntryViewModel
-            {
-                ScheduleDate = date ?? DateTime.Today,
-                StartTime = "09:00",
-                EndTime = "10:00",
-                StatusId = 1,
-                Students = db.Students.ToList(),
-                Statuses = db.ScheduleStatuses.ToList()
-            };
-
-            return View(viewModel);
-        }
-
-        // POST: Timetable/Create
+        // POST: api/Timetable
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Create(EditEntryViewModel model)
+        public IActionResult CreateEntry([FromBody] EditEntryViewModel model)
         {
             bool isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
             if (!isTeacher)
-                return RedirectToAction("Index");
+                return Unauthorized(new { message = "Only teachers can create entries" });
 
             // Validate time
             if (!string.IsNullOrEmpty(model.StartTime) && !string.IsNullOrEmpty(model.EndTime))
@@ -173,16 +195,12 @@ namespace TimetableSystem.Controllers
 
                 if (endMinutes <= startMinutes)
                 {
-                    ModelState.AddModelError("EndTime", "End time must be later than start time");
-                    model.Students = db.Students.ToList();
-                    model.Statuses = db.ScheduleStatuses.ToList();
-                    return View(model);
+                    return BadRequest(new { message = "End time must be later than start time" });
                 }
             }
 
             try
             {
-                // Parse time correctly
                 var startTimeParts = model.StartTime.Split(':');
                 var startTime = new DateTime(1, 1, 1, int.Parse(startTimeParts[0]), int.Parse(startTimeParts[1]), 0, DateTimeKind.Utc);
                 var endTimeParts = model.EndTime.Split(':');
@@ -203,40 +221,36 @@ namespace TimetableSystem.Controllers
                 db.TimetableEntries.Add(entry);
                 db.SaveChanges();
 
-                TempData["SuccessMessage"] = "Entry created successfully!";
-                return RedirectToAction("Index", new { year = model.ScheduleDate.Year, month = model.ScheduleDate.Month });
+                return Ok(new { success = true, message = "Entry created successfully!", entryId = entry.EntryId });
             }
             catch (Exception ex)
             {
-                ModelState.AddModelError("", "Error creating entry: " + ex.Message);
-                model.Students = db.Students.ToList();
-                model.Statuses = db.ScheduleStatuses.ToList();
-                return View(model);
+                return BadRequest(new { message = "Error creating entry: " + ex.Message });
             }
         }
 
-        // POST: Timetable/Delete
-        [HttpPost]
-        public JsonResult Delete(int id)
+        // DELETE: api/Timetable/{id}
+        [HttpDelete("{id}")]
+        public IActionResult DeleteEntry(int id)
         {
             bool isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
             if (!isTeacher)
-                return Json(new { success = false, message = "Unauthorized" });
+                return Unauthorized(new { message = "Only teachers can delete entries" });
 
             try
             {
                 var entry = db.TimetableEntries.Find(id);
                 if (entry == null)
-                    return Json(new { success = false, message = "Entry not found" });
+                    return NotFound(new { message = "Entry not found" });
 
                 db.TimetableEntries.Remove(entry);
                 db.SaveChanges();
 
-                return Json(new { success = true });
+                return Ok(new { success = true, message = "Entry deleted successfully" });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = "Error deleting entry: " + ex.Message });
+                return BadRequest(new { message = "Error deleting entry: " + ex.Message });
             }
         }
 
@@ -273,22 +287,22 @@ namespace TimetableSystem.Controllers
                 for (int i = 0; i < 7; i++)
                 {
                     var dayEntries = entries
-                        .Where(e => e.ScheduleDate.Date == currentDate.Date)
+                        .Where(e => e.ScheduleDate.Date == currentDate.Date && e.Student != null && e.Status != null)
                         .Select(e => new TimetableEntryViewModel
                         {
                             EntryId = e.EntryId,
                             ScheduleDate = e.ScheduleDate,
-                            StartTime = e.StartTime.ToString(@"HH\:mm"),
-                            EndTime = e.EndTime.ToString(@"HH\:mm"),
-                            TimeSlot = e.StartTime.ToString(@"HH\:mm") + "-" + e.EndTime.ToString(@"HH\:mm"),
-                            StudentName = e.Student.StudentName,
-                            StudentCode = e.Student.StudentCode,
+                            StartTime = e.StartTime.ToString(@"HH\:mm") ?? "00:00",
+                            EndTime = e.EndTime.ToString(@"HH\:mm") ?? "00:00",
+                            TimeSlot = (e.StartTime.ToString(@"HH\:mm") ?? "00:00") + "-" + (e.EndTime.ToString(@"HH\:mm") ?? "00:00"),
+                            StudentName = e.Student!.StudentName,
+                            StudentCode = e.Student!.StudentCode,
                             Subject = e.Subject,
                             SubjectCode = !string.IsNullOrEmpty(e.Subject) && e.Subject.Length > 10
                                 ? e.Subject.Substring(0, 10) + "..."
                                 : e.Subject,
-                            StatusName = e.Status.StatusName,
-                            ColorCode = e.Status.ColorCode,
+                            StatusName = e.Status!.StatusName,
+                            ColorCode = e.Status!.ColorCode,
                             Location = e.Location,
                             Notes = e.Notes
                         })
@@ -310,13 +324,25 @@ namespace TimetableSystem.Controllers
                 weeks.Add(week);
             }
 
+            // Create StatusLegend using DTO without navigation properties to avoid circular references
+            var statusLegend = db.ScheduleStatuses
+                .AsNoTracking()
+                .Select(s => new ScheduleStatusDto
+                {
+                    StatusId = s.StatusId,
+                    StatusName = s.StatusName,
+                    ColorCode = s.ColorCode,
+                    Description = s.Description
+                })
+                .ToList();
+
             return new TimetableViewModel
             {
                 Year = year,
                 Month = month,
-                MonthName = firstDay.ToString("MMMM yyyy"),
+                MonthName = firstDay.ToString("MMMM yyyy") ?? $"{firstDay:MMMM yyyy}",
                 Weeks = weeks,
-                StatusLegend = db.ScheduleStatuses.ToList(),
+                StatusLegend = statusLegend,
                 IsTeacher = isTeacher,
                 CurrentStudentId = studentId
             };

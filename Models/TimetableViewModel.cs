@@ -8,9 +8,18 @@ namespace TimetableSystem.Models
         public int Month { get; set; }
         public string MonthName { get; set; }
         public List<WeekViewModel> Weeks { get; set; }
-        public List<ScheduleStatus> StatusLegend { get; set; }
+        public List<ScheduleStatusDto> StatusLegend { get; set; }
         public bool IsTeacher { get; set; }
         public int? CurrentStudentId { get; set; }
+    }
+
+    // DTO for Status without navigation properties to avoid JSON cycles
+    public class ScheduleStatusDto
+    {
+        public int StatusId { get; set; }
+        public string StatusName { get; set; }
+        public string ColorCode { get; set; }
+        public string? Description { get; set; }
     }
 
     public class WeekViewModel

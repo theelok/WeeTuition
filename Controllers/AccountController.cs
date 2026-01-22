@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace TimetableSystem.Controllers
 {
-    public class AccountController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AccountController : ControllerBase
     {
         private readonly AppDbContext db;
 
@@ -14,20 +16,12 @@ namespace TimetableSystem.Controllers
             db = context;
         }
 
-        // GET: Account/Login
-        [HttpGet]
-        public IActionResult Login()
-        {
-            return View(new LoginViewModel());
-        }
-
-        // POST: Account/Login
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Login(LoginViewModel model)
+        // POST: api/Account/Login
+        [HttpPost("login")]
+        public IActionResult Login([FromBody] LoginViewModel model)
         {
             if (!ModelState.IsValid)
-                return View(model);
+                return BadRequest(new { message = "Invalid input" });
 
             // Teacher login (hardcoded)
             if (model.Username == "teacher" && model.Password == "teacher123")
@@ -36,7 +30,18 @@ namespace TimetableSystem.Controllers
                 HttpContext.Session.SetString("Username", "Teacher");
                 HttpContext.Session.Remove("StudentId");
 
-                return RedirectToAction("Index", "Timetable");
+                // Verify session was set
+                var testValue = HttpContext.Session.GetString("IsTeacher");
+                
+                var response = Ok(new { 
+                    success = true, 
+                    isTeacher = true, 
+                    username = "Teacher",
+                    studentId = (int?)null,
+                    sessionSet = testValue == "true"
+                });
+                
+                return response;
             }
 
             // Student login (from database)
@@ -49,18 +54,57 @@ namespace TimetableSystem.Controllers
                 HttpContext.Session.SetInt32("StudentId", student.StudentId);
                 HttpContext.Session.SetString("Username", student.StudentName);
 
-                return RedirectToAction("Index", "Timetable");
+                return Ok(new { 
+                    success = true, 
+                    isTeacher = false, 
+                    username = student.StudentName,
+                    studentId = student.StudentId
+                });
             }
 
-            ModelState.AddModelError("", "Invalid username or password");
-            return View(model);
+            return Unauthorized(new { message = "Invalid username or password" });
         }
 
-        // GET: Account/Logout
+        // POST: api/Account/Logout
+        [HttpPost("logout")]
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();
-            return RedirectToAction("Login");
+            return Ok(new { success = true });
+        }
+
+        // GET: api/Account/CurrentUser
+        [HttpGet("current")]
+        public IActionResult GetCurrentUser()
+        {
+            var isTeacher = HttpContext.Session.GetString("IsTeacher") == "true";
+            var studentId = HttpContext.Session.GetInt32("StudentId");
+            var username = HttpContext.Session.GetString("Username");
+
+            if (string.IsNullOrEmpty(username))
+                return Unauthorized(new { message = "Not logged in" });
+
+            return Ok(new { 
+                isTeacher, 
+                studentId, 
+                username 
+            });
+        }
+
+        // GET: api/Account/TestSession
+        [HttpGet("testsession")]
+        public IActionResult TestSession()
+        {
+            var sessionId = HttpContext.Session.Id;
+            var isTeacher = HttpContext.Session.GetString("IsTeacher");
+            var hasSession = !string.IsNullOrEmpty(sessionId);
+            
+            return Ok(new { 
+                hasSession,
+                sessionId,
+                isTeacher,
+                cookieHeader = Request.Headers["Cookie"].ToString()
+            });
         }
     }
 }
