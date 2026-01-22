@@ -121,6 +121,26 @@ const EntryForm: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!isEdit || !id) return;
+
+    if (!confirm('⚠️ Are you sure you want to delete this entry? This action cannot be undone!')) {
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      await timetableApi.deleteEntry(parseInt(id));
+      const date = new Date(formData.scheduleDate);
+      navigate(`/timetable?year=${date.getFullYear()}&month=${date.getMonth() + 1}`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete entry');
+      setLoading(false);
+    }
+  };
+
   if (!user?.isTeacher) {
     return null;
   }
@@ -255,6 +275,16 @@ const EntryForm: React.FC = () => {
               >
                 {loading ? 'Saving...' : isEdit ? 'Update Entry' : 'Create Entry'}
               </button>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="px-6 py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full transition-all duration-300 disabled:opacity-50 shadow-lg hover:shadow-xl"
+                >
+                  🗑️ Delete
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate('/timetable')}
